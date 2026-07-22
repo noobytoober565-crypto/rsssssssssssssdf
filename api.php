@@ -3,15 +3,19 @@ require_once __DIR__ . '/db.php';
 
 $db = getDB();
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonResponse(['error' => 'Method not allowed'], 405);
-}
+$method = $_SERVER['REQUEST_METHOD'];
+$action = $_GET['action'] ?? '';
 
-$input = json_decode(file_get_contents('php://input'), true);
-$action = $input['action'] ?? '';
+if ($method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $action = $input['action'] ?? '';
+}
 
 switch ($action) {
     case 'check_key':
+        if ($method !== 'POST') {
+            jsonResponse(['error' => 'Method not allowed'], 405);
+        }
         $key = trim($input['key'] ?? '');
         if (empty($key)) {
             jsonResponse(['status' => 'error', 'message' => 'No key provided']);
