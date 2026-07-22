@@ -5,7 +5,6 @@ requireLogin();
 $db = getDB();
 $message = '';
 
-// Add DLL
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_dll'])) {
     $name = trim($_POST['dll_name'] ?? '');
     if (!empty($_FILES['dll_file']['name']) && $name) {
@@ -14,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_dll'])) {
             $filename = bin2hex(random_bytes(16)) . '.dll';
             if (move_uploaded_file($_FILES['dll_file']['tmp_name'], UPLOADS_DIR . '/' . $filename)) {
                 $stmt = $db->prepare('INSERT INTO dlls (name, filename) VALUES (:name, :filename)');
-                $stmt->bindValue(':name', $name, SQLITE3_TEXT);
-                $stmt->bindValue(':filename', $filename, SQLITE3_TEXT);
-                $stmt->execute();
+                $stmt->execute([':name' => $name, ':filename' => $filename]);
                 $message = 'DLL uploaded: ' . htmlspecialchars($name);
             } else {
                 $message = 'Upload failed';
@@ -29,12 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_dll'])) {
     }
 }
 
-// Delete DLL
 if (isset($_GET['delete_dll'])) {
     $id = (int) $_GET['delete_dll'];
     $stmt = $db->prepare('SELECT filename FROM dlls WHERE id = :id');
-    $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
-    $row = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch();
     if ($row) {
         $path = UPLOADS_DIR . '/' . $row['filename'];
         if (file_exists($path)) unlink($path);
@@ -44,40 +40,35 @@ if (isset($_GET['delete_dll'])) {
     }
 }
 
-// Replace DLL file
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['replace_dll'])) {
     $id = (int) $_POST['dll_id'];
     if (!empty($_FILES['new_dll_file']['name'])) {
         $ext = strtolower(pathinfo($_FILES['new_dll_file']['name'], PATHINFO_EXTENSION));
         if ($ext === 'dll') {
             $stmt = $db->prepare('SELECT filename FROM dlls WHERE id = :id');
-            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
-            $row = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+            $stmt->execute([':id' => $id]);
+            $row = $stmt->fetch();
             if ($row) {
                 $old_path = UPLOADS_DIR . '/' . $row['filename'];
                 if (file_exists($old_path)) unlink($old_path);
                 $new_filename = bin2hex(random_bytes(16)) . '.dll';
                 move_uploaded_file($_FILES['new_dll_file']['tmp_name'], UPLOADS_DIR . '/' . $new_filename);
                 $stmt2 = $db->prepare('UPDATE dlls SET filename = :fn WHERE id = :id');
-                $stmt2->bindValue(':fn', $new_filename, SQLITE3_TEXT);
-                $stmt2->bindValue(':id', $id, SQLITE3_INTEGER);
-                $stmt2->execute();
+                $stmt2->execute([':fn' => $new_filename, ':id' => $id]);
                 $message = 'DLL file replaced';
             }
         }
     }
 }
 
-// Add key
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_key'])) {
     $key = trim($_POST['key_value'] ?? '');
     $dll_id = (int) ($_POST['assign_dll'] ?? 0);
     if ($key) {
         try {
             $stmt = $db->prepare('INSERT INTO keys (key_value, dll_id) VALUES (:key, :dll_id)');
-            $stmt->bindValue(':key', $key, SQLITE3_TEXT);
-            $stmt->bindValue(':dll_id', $dll_id > 0 ? $dll_id : null, $dll_id > 0 ? SQLITE3_INTEGER : SQLITE3_NULL);
-            $stmt->execute();
+            $dllParam = $dll_id > 0 ? $dll_id : null;
+            $stmt->execute([':key' => $key, ':dll_id' => $dllParam]);
             $message = 'Key added: ' . htmlspecialchars($key);
         } catch (Exception $e) {
             $message = 'Key already exists';
@@ -85,30 +76,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_key'])) {
     }
 }
 
-// Delete key
 if (isset($_GET['delete_key'])) {
     $id = (int) $_GET['delete_key'];
     $db->exec('DELETE FROM keys WHERE id = ' . $id);
     $message = 'Key deleted';
 }
 
-// Toggle key
 if (isset($_GET['toggle_key'])) {
     $id = (int) $_GET['toggle_key'];
-    $db->exec('UPDATE keys SET active = 1 - active WHERE id = ' . $id);
+    $db->exec('UPDATE keys SET active = CASE WHEN active=1 THEN 0 ELSE 1 END WHERE id = ' . $id);
     $message = 'Key status toggled';
 }
 
-// Edit key value
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_key'])) {
     $id = (int) $_POST['key_id'];
     $new_value = trim($_POST['new_key_value'] ?? '');
     if ($new_value) {
         try {
             $stmt = $db->prepare('UPDATE keys SET key_value = :kv WHERE id = :id');
-            $stmt->bindValue(':kv', $new_value, SQLITE3_TEXT);
-            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
-            $stmt->execute();
+            $stmt->execute([':kv' => $new_value, ':id' => $id]);
             $message = 'Key updated';
         } catch (Exception $e) {
             $message = 'Key value already exists';
@@ -116,20 +102,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_key'])) {
     }
 }
 
-// Reassign key DLL
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reassign_key'])) {
     $id = (int) $_POST['key_id'];
     $dll_id = (int) ($_POST['new_dll_id'] ?? 0);
     $stmt = $db->prepare('UPDATE keys SET dll_id = :dll_id WHERE id = :id');
-    $stmt->bindValue(':dll_id', $dll_id > 0 ? $dll_id : null, $dll_id > 0 ? SQLITE3_INTEGER : SQLITE3_NULL);
-    $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
-    $stmt->execute();
+    $dllParam = $dll_id > 0 ? $dll_id : null;
+    $stmt->execute([':dll_id' => $dllParam, ':id' => $id]);
     $message = 'Key reassigned';
 }
 
 $dllResult = $db->query('SELECT * FROM dlls ORDER BY uploaded_at DESC');
-$keysResult = $db->query('SELECT k.*, d.name as dll_name FROM keys k LEFT JOIN dlls d ON k.dll_id = d.id ORDER BY k.created_at DESC');
-$dllList = $db->query('SELECT * FROM dlls ORDER BY name');
+$keysResult = $db->query('SELECT k.id, k.key_value, k.dll_id, k.active, k.created_at, d.name as dll_name FROM keys k LEFT JOIN dlls d ON k.dll_id = d.id ORDER BY k.created_at DESC');
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -155,8 +138,6 @@ $dllList = $db->query('SELECT * FROM dlls ORDER BY name');
         button:hover, .btn:hover { background: #00cc33; }
         .btn-red { background: #ff4444; }
         .btn-red:hover { background: #cc0000; }
-        .btn-blue { background: #4444ff; }
-        .btn-blue:hover { background: #0000cc; }
         .btn-small { padding: 4px 8px; font-size: 11px; }
         form.inline { display: inline; }
         .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
@@ -185,7 +166,7 @@ $dllList = $db->query('SELECT * FROM dlls ORDER BY name');
             <tr><th>ID</th><th>Name</th><th>File</th><th>Date</th><th>Actions</th></tr>
             <?php
             $hasDlls = false;
-            while ($row = $dllResult->fetchArray(SQLITE3_ASSOC)):
+            while ($row = $dllResult->fetch()):
                 $hasDlls = true;
             ?>
                 <tr>
@@ -210,7 +191,7 @@ $dllList = $db->query('SELECT * FROM dlls ORDER BY name');
                     <option value="">Select DLL...</option>
                     <?php
                     $dllListR = $db->query('SELECT * FROM dlls ORDER BY name');
-                    while ($d = $dllListR->fetchArray(SQLITE3_ASSOC)):
+                    while ($d = $dllListR->fetch()):
                     ?>
                         <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
                     <?php endwhile; ?>
@@ -227,10 +208,10 @@ $dllList = $db->query('SELECT * FROM dlls ORDER BY name');
             <div class="row">
                 <input type="text" name="key_value" placeholder="Key value" required>
                 <select name="assign_dll">
-                    <option value="0">No DLL</option>
+                    <option value="">No DLL</option>
                     <?php
                     $dllListR2 = $db->query('SELECT * FROM dlls ORDER BY name');
-                    while ($d = $dllListR2->fetchArray(SQLITE3_ASSOC)):
+                    while ($d = $dllListR2->fetch()):
                     ?>
                         <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
                     <?php endwhile; ?>
@@ -242,7 +223,7 @@ $dllList = $db->query('SELECT * FROM dlls ORDER BY name');
             <tr><th>ID</th><th>Key</th><th>Assigned DLL</th><th>Status</th><th>Created</th><th>Actions</th></tr>
             <?php
             $hasKeys = false;
-            while ($row = $keysResult->fetchArray(SQLITE3_ASSOC)):
+            while ($row = $keysResult->fetch()):
                 $hasKeys = true;
             ?>
                 <tr>
@@ -258,10 +239,10 @@ $dllList = $db->query('SELECT * FROM dlls ORDER BY name');
                         <form method="POST" class="inline">
                             <input type="hidden" name="key_id" value="<?= $row['id'] ?>">
                             <select name="new_dll_id" style="width:150px">
-                                <option value="0" <?= !$row['dll_id'] ? 'selected' : '' ?>>No DLL</option>
+                                <option value="" <?= !$row['dll_id'] ? 'selected' : '' ?>>No DLL</option>
                                 <?php
                                 $dllListR3 = $db->query('SELECT * FROM dlls ORDER BY name');
-                                while ($d = $dllListR3->fetchArray(SQLITE3_ASSOC)):
+                                while ($d = $dllListR3->fetch()):
                                 ?>
                                     <option value="<?= $d['id'] ?>" <?= $row['dll_id'] == $d['id'] ? 'selected' : '' ?>><?= htmlspecialchars($d['name']) ?></option>
                                 <?php endwhile; ?>

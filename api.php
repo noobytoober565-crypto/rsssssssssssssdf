@@ -18,9 +18,8 @@ switch ($action) {
         }
 
         $stmt = $db->prepare('SELECT k.id, k.dll_id, k.active, d.filename, d.name FROM keys k LEFT JOIN dlls d ON k.dll_id = d.id WHERE k.key_value = :key');
-        $stmt->bindValue(':key', $key, SQLITE3_TEXT);
-        $result = $stmt->execute();
-        $row = $result->fetchArray(SQLITE3_ASSOC);
+        $stmt->execute([':key' => $key]);
+        $row = $stmt->fetch();
 
         if (!$row) {
             jsonResponse(['status' => 'error', 'message' => 'Key not found']);
@@ -51,9 +50,8 @@ switch ($action) {
         }
 
         $stmt = $db->prepare('SELECT k.key_value, k.active, d.filename, d.name FROM keys k LEFT JOIN dlls d ON k.dll_id = d.id WHERE k.key_value = :key');
-        $stmt->bindValue(':key', $key, SQLITE3_TEXT);
-        $result = $stmt->execute();
-        $row = $result->fetchArray(SQLITE3_ASSOC);
+        $stmt->execute([':key' => $key]);
+        $row = $stmt->fetch();
 
         if (!$row || !$row['active'] || !$row['filename']) {
             http_response_code(403);
