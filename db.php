@@ -3,7 +3,7 @@ session_start();
 
 define('DB_PATH', __DIR__ . '/database.sqlite');
 define('UPLOADS_DIR', __DIR__ . '/uploads');
-define('ADMIN_PASS', 'admin123');
+define('ADMIN_PASS', '201112161s');
 
 if (!is_dir(UPLOADS_DIR)) {
     mkdir(UPLOADS_DIR, 0755, true);
