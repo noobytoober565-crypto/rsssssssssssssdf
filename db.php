@@ -3,31 +3,32 @@ session_start();
 
 define('ADMIN_PASS', '201112161s');
 define('UPLOADS_DIR', __DIR__ . '/uploads');
+define('DB_PATH', __DIR__ . '/database.sqlite');
 
 if (!is_dir(UPLOADS_DIR)) {
     mkdir(UPLOADS_DIR, 0755, true);
 }
 
 function getDB(): PDO {
-    $dsn = getenv('DATABASE_URL') ?: 'postgresql://postgres:vVTlGSrdycctZMJVZujeFqxecYtaSZDX@postgres.railway.internal:5432/railway';
-    $db = new PDO($dsn, null, null, [
+    $db = new PDO('sqlite:' . DB_PATH, null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
     $db->exec('CREATE TABLE IF NOT EXISTS keys (
-        id SERIAL PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         key_value TEXT UNIQUE NOT NULL,
         dll_id INTEGER,
         active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (dll_id) REFERENCES dlls(id) ON DELETE SET NULL
     )');
 
     $db->exec('CREATE TABLE IF NOT EXISTS dlls (
-        id SERIAL PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         filename TEXT NOT NULL,
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )');
 
     return $db;
