@@ -3,8 +3,8 @@ require_once __DIR__ . '/db.php';
 
 $db = getDB();
 
-$ENC_KEY = 'Kz/9xZWod/gk19dygcK8YB5eqTOcYJRcLhaatOO8MlE=';
-$ENC_IV = 'caN/9YpLp6JQa2JrCgCZMQ==';
+$ENC_KEY = 'S3ovPZwa5WizBNfygV6pPGAZzkcttYbwc64Um9gxXOI=';
+$ENC_IV = 'caNfjS6Ua8AV2EN6/mILmQ==';
 
 function aes_encrypt(string $plaintext): string {
     global $ENC_KEY, $ENC_IV;
